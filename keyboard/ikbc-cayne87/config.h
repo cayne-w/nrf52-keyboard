@@ -81,8 +81,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // LED 配置
 // #define LED_NUM 12
-#define LED_CAPS 34
-#define LED_SCLK 35
+#define LED_CAPS 19
+#define LED_SCLK 20
 // #define LED_POSITIVE // LED上拉驱动
 // #define LED_NO_DEINIT // 不要deinit端口，可以避免部分IO灯光无法关闭的问题
 

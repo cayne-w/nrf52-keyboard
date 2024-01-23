@@ -26,7 +26,7 @@ const uint8_t keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         TAB,  Q,    W,    E,    R,    T,    Y,    U,    I,    O,    P,    LBRC, RBRC,       \
         CAPS, A,    S,    D,    F,    G,    H,    J,    K,    L,    SCLN, QUOT, ENT,        \
         UP,   LSFT,       Z,    X,    C,    V,    B,    N,    M,    COMM, DOT,  SLSH, RSFT, \
-        LEFT, DOWN,       LCTL, LALT, LGUI,       SPC,        FN0,  RCTL, RALT, RGHT, RGUI, \
+        LEFT, DOWN,       LCTL, LGUI, LALT,       SPC,        FN0,  RCTL, RALT, RGHT, RGUI, \
                                             PGUP,             HOME, INS,  BSPC,             \
                           DEL,        PGDN, END,              PAUS, SLCK, PSCR,       BSLS),
     /* 1: qwerty with out left win */
@@ -36,7 +36,7 @@ const uint8_t keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
         TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
         TRNS, TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, \
-        TRNS, TRNS,       TRNS, TRNS,   NO,       TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, \
+        TRNS, TRNS,       TRNS,   NO, TRNS,       TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, \
                                             TRNS,             TRNS, TRNS, TRNS,             \
                           TRNS,       TRNS, TRNS,             TRNS, TRNS, TRNS,       TRNS  ),
     /* 2: Poker Fn */
@@ -46,7 +46,7 @@ const uint8_t keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
         TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
         TRNS, TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, \
-        TRNS, TRNS,       TRNS, TRNS,  FN1,       TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, \
+        TRNS, TRNS,       TRNS,  FN1, TRNS,       TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, \
                                             TRNS,             TRNS, TRNS, TRNS,             \
                           TRNS,       TRNS, TRNS,             TRNS, TRNS, TRNS,       TRNS  ),
 };
