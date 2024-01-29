@@ -46,7 +46,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define KEYBOARD_SCAN_INTERVAL 1 // 键盘最小时间单位TICK (ms)
 #define KEYBOARD_FAST_SCAN_INTERVAL 5 // 通常模式下，多久扫描一次键盘 (ms)
 #define KEYBOARD_SLOW_SCAN_INTERVAL 50 // 慢速模式下，多久扫描一次键盘 (ms)
-#define LED_AUTOOFF_TIME 2 /* LED自动熄灭时长(s)，设为0则不自动熄灭 */
+#define LED_AUTOOFF_TIME 0 /* LED自动熄灭时长(s)，设为0则不自动熄灭 */
 
 // 键盘额外功能
 #define DYNAMIC_TX_POWER /* 启用自动发射功率调整 */
@@ -84,7 +84,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define LED_CAPS 19
 #define LED_SCLK 20
 // #define LED_POSITIVE // LED上拉驱动
-// #define LED_NO_DEINIT // 不要deinit端口，可以避免部分IO灯光无法关闭的问题
+#define LED_NO_DEINIT // 不要deinit端口，可以避免部分IO灯光无法关闭的问题
 
 // Bootloader 指示灯
 // #define LED_DFU_INIT 22
