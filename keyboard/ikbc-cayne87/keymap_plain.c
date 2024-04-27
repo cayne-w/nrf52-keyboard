@@ -47,8 +47,8 @@ const uint8_t keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
         TRNS, TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, \
         TRNS, TRNS,       TRNS,  FN1, TRNS,       TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, \
-                                            TRNS,             TRNS, TRNS, TRNS,             \
-                          TRNS,       TRNS, TRNS,             TRNS, TRNS, TRNS,       TRNS  ),
+                                            VOLU,             TRNS, TRNS, TRNS,             \
+                          TRNS,       VOLD, MUTE,             TRNS, TRNS, TRNS,       TRNS  ),
 };
 const action_t fn_actions[] = {
     /* Poker Layout */
