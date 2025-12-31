@@ -29,17 +29,7 @@ const uint8_t keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         LEFT, DOWN,       LCTL, LGUI, LALT,       SPC,        FN0,  RCTL, RALT, RGHT, RGUI, \
                                             PGUP,             HOME, INS,  BSPC,             \
                           DEL,        PGDN, END,              PAUS, SLCK, PSCR,       BSLS),
-    /* 1: qwerty with out left win */
-    KEYMAP_ANSI( \
-        TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
-        TRNS, TRNS, TRNS, KP_7, KP_8, KP_4, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
-        TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
-        TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
-        TRNS, TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, \
-        TRNS, TRNS,       TRNS,   NO, TRNS,       TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, \
-                                            TRNS,             TRNS, TRNS, TRNS,             \
-                          TRNS,       TRNS, TRNS,             TRNS, TRNS, TRNS,       TRNS  ),
-    /* 2: Poker Fn */
+    /* 1: Poker Fn */
     KEYMAP_ANSI( \
         TRNS, MUTE, VOLD, VOLU, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
         TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
@@ -49,10 +39,20 @@ const uint8_t keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         TRNS, TRNS,       TRNS,  FN1, TRNS,       TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, \
                                             VOLU,             TRNS, TRNS, TRNS,             \
                           TRNS,       VOLD, MUTE,             TRNS, TRNS, TRNS,       TRNS  ),
+    /* 2: qwerty with out left win */
+    KEYMAP_ANSI( \
+        TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
+        TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
+        TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
+        TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS,       \
+        TRNS, TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, TRNS, \
+        TRNS, TRNS,       TRNS, LALT, LGUI,       TRNS,       TRNS, TRNS, TRNS, TRNS, TRNS, \
+                                            TRNS,             TRNS, TRNS, TRNS,             \
+                          TRNS,       TRNS, TRNS,             TRNS, TRNS, TRNS,       TRNS  ),
 };
 const action_t fn_actions[] = {
     /* Poker Layout */
-    ACTION_LAYER_MOMENTARY(2),  // to Fn overlay
-    ACTION_LAYER_TOGGLE(1), // to Fn overlay
+    ACTION_LAYER_MOMENTARY(1),  // FN0
+    ACTION_LAYER_TOGGLE(2),     // FN1
 };
 

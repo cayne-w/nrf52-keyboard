@@ -41,8 +41,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define BOOTMAGIC_KEY_ERASE_BOND KC_E /* 删除所有绑定 */
 
 // 键盘省电参数
-#define SLEEP_SLOW_TIMEOUT 300 // 键盘闲置多久后转入慢速扫描模式 (s)
-#define SLEEP_OFF_TIMEOUT 1800 // 键盘闲置多久后转入自动关机 (s)
+#define SLEEP_SLOW_TIMEOUT 900 // 键盘闲置多久后转入慢速扫描模式 (s)
+#define SLEEP_OFF_TIMEOUT 2700 // 键盘闲置多久后转入自动关机 (s)
 #define KEYBOARD_SCAN_INTERVAL 1 // 键盘最小时间单位TICK (ms)
 #define KEYBOARD_FAST_SCAN_INTERVAL 5 // 通常模式下，多久扫描一次键盘 (ms)
 #define KEYBOARD_SLOW_SCAN_INTERVAL 50 // 慢速模式下，多久扫描一次键盘 (ms)
@@ -113,7 +113,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MATRIX_ROWS 8 /* 硬件阵列行数 */
 #define MATRIX_COLS 14 /* 硬件阵列列数 */
 static const uint8_t row_pin_array[MATRIX_ROWS] = { 13, 12, 11, 18, 17, 16, 15, 14 };
-static const uint8_t column_pin_array[MATRIX_COLS] = { 6, 8, 4, 7, 5, 25, 26, 27, 28, 29, 30, 31, 2, 3 };
+static const uint8_t column_pin_array[MATRIX_COLS] = { 6, 8, 4, 7, 5, 25, 26, 27, 28, 29, 30, 31, 22, 3 };
 // #define ROW_IN // 键盘阵列的二极管方向是从COL->ROW
 
 /* define if matrix has ghost */
@@ -129,3 +129,7 @@ static const uint8_t column_pin_array[MATRIX_COLS] = { 6, 8, 4, 7, 5, 25, 26, 27
 #define SWD_DAT_IO T2
 #define SWD_DAT_MASK bT2
 #define SWD_DAT_PORT P1
+
+// 禁用看门狗，尝试解决间歇性重联问题
+#define NRFX_WDT_ENABLED 0
+#define WDT_ENABLED 0
