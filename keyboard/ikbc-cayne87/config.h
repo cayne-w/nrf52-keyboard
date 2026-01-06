@@ -51,7 +51,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 键盘额外功能
 #define DYNAMIC_TX_POWER /* 启用自动发射功率调整 */
 // #define PASSKEY_REQUIRED /* 需要输入配对码 */
-#define ENABLE_WATCHDOG /* 启用看门狗 */
+//#define ENABLE_WATCHDOG /* 启用看门狗 */
 //#define HIGH_TX_POWER /* 更改发射功率到+4dBm */
 // #define MULTI_DEVICE_SWITCH  /*启用多设备切换 */
 #define KEYMAP_STORAGE /* 启用keymap存储 */
@@ -84,7 +84,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define LED_CAPS 19
 #define LED_SCLK 20
 // #define LED_POSITIVE // LED上拉驱动
-#define LED_NO_DEINIT // 不要deinit端口，可以避免部分IO灯光无法关闭的问题
+// #define LED_NO_DEINIT // 不要deinit端口，可以避免部分IO灯光无法关闭的问题
 
 // Bootloader 指示灯
 // #define LED_DFU_INIT 22
@@ -130,6 +130,3 @@ static const uint8_t column_pin_array[MATRIX_COLS] = { 6, 8, 4, 7, 5, 25, 26, 27
 #define SWD_DAT_MASK bT2
 #define SWD_DAT_PORT P1
 
-// 禁用看门狗，尝试解决间歇性重联问题
-#define NRFX_WDT_ENABLED 0
-#define WDT_ENABLED 0
