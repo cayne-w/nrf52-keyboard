@@ -60,7 +60,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define CONFIG_STORAGE /* 启用配置存储功能 */
 #define BUTTONLESS_DFU /* 启用免按钮DFU */
 
-#define DEBUG_SKIP_PWRON_CHECK /*  直接开机而跳过开机条件检测，用于调试 */
+// #define DEBUG_SKIP_PWRON_CHECK /*  直接开机而跳过开机条件检测，用于调试 */
 
 /* TMK固件内置功能 */
 /* disable action features */

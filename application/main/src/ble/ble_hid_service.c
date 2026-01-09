@@ -99,9 +99,10 @@ static bool m_in_boot_mode = false; /**< Current protocol mode. */
 #define BUFFER_LIST_EMPTY() \
     ((0 == buffer_list.count) ? true : false)
 
-#define BUFFER_ELEMENT_INIT(i)                 \
-    do {                                       \
-        buffer_list.buffer[(i)].p_data = NULL; \
+#define BUFFER_ELEMENT_INIT(i)                     \
+    do {                                           \
+        buffer_list.buffer[(i)].data_len = 0;      \
+        buffer_list.buffer[(i)].p_instance = NULL; \
     } while (0)
 
 /** @} */
@@ -110,7 +111,7 @@ static bool m_in_boot_mode = false; /**< Current protocol mode. */
 typedef struct hid_key_buffer {
     uint8_t index; /**< Report Index */
     uint8_t data_len; /**< Total length of data */
-    uint8_t* p_data; /**< Scanned key pattern */
+    uint8_t data[INPUT_REPORT_LEN_KEYBOARD]; /**< Local copy of key pattern to avoid pointer reuse issues */
     ble_hids_t* p_instance; /**< Identifies peer and service instance */
 } buffer_entry_t;
 
@@ -291,9 +292,14 @@ static uint32_t buffer_enqueue(ble_hids_t* p_hids,
         // Make entry of buffer element and copy data.
         element = &buffer_list.buffer[(buffer_list.wp)];
         element->p_instance = p_hids;
-        element->p_data = p_key_pattern;
         element->index = report_index;
-        element->data_len = pattern_len;
+        /* 限制长度，防止越界 */
+        if (pattern_len > sizeof(element->data)) {
+            pattern_len = sizeof(element->data);
+        }
+        element->data_len = (uint8_t)pattern_len;
+        /* 关键修复：拷贝按键报告内容到本地缓存，避免仅保存指针导致的重复发送 */
+        memcpy(element->data, p_key_pattern, element->data_len);
 
         buffer_list.count++;
         buffer_list.wp++;
@@ -330,7 +336,7 @@ static uint32_t buffer_dequeue(bool tx_flag)
         if (tx_flag) {
             err_code = send_key(p_element->p_instance,
                 p_element->index,
-                p_element->p_data,
+                p_element->data,
                 p_element->data_len);
             if (err_code == NRF_ERROR_RESOURCES) {
                 // Transmission could not be completed, do not remove the entry
