@@ -51,7 +51,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 键盘额外功能
 #define DYNAMIC_TX_POWER /* 启用自动发射功率调整 */
 // #define PASSKEY_REQUIRED /* 需要输入配对码 */
-//#define ENABLE_WATCHDOG /* 启用看门狗 */
+#define ENABLE_WATCHDOG /* 启用看门狗 */
 //#define HIGH_TX_POWER /* 更改发射功率到+4dBm */
 // #define MULTI_DEVICE_SWITCH  /*启用多设备切换 */
 #define KEYMAP_STORAGE /* 启用keymap存储 */
