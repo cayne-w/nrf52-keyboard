@@ -41,7 +41,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define BOOTMAGIC_KEY_ERASE_BOND KC_E /* 删除所有绑定 */
 
 // 键盘省电参数
-#define SLEEP_SLOW_TIMEOUT 900 // 键盘闲置多久后转入慢速扫描模式 (s)
+#define SLEEP_SLOW_TIMEOUT 600 // 键盘闲置多久后转入慢速扫描模式 (s)
 #define SLEEP_OFF_TIMEOUT 2700 // 键盘闲置多久后转入自动关机 (s)
 #define KEYBOARD_SCAN_INTERVAL 1 // 键盘最小时间单位TICK (ms)
 #define KEYBOARD_FAST_SCAN_INTERVAL 5 // 通常模式下，多久扫描一次键盘 (ms)
@@ -60,7 +60,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define CONFIG_STORAGE /* 启用配置存储功能 */
 #define BUTTONLESS_DFU /* 启用免按钮DFU */
 
-// #define DEBUG_SKIP_PWRON_CHECK /*  直接开机而跳过开机条件检测，用于调试 */
+#define DEBUG_SKIP_PWRON_CHECK /*  直接开机而跳过开机条件检测，用于调试 */
 
 /* TMK固件内置功能 */
 /* disable action features */
@@ -84,7 +84,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define LED_CAPS 19
 #define LED_SCLK 20
 // #define LED_POSITIVE // LED上拉驱动
-// #define LED_NO_DEINIT // 不要deinit端口，可以避免部分IO灯光无法关闭的问题
+#define LED_NO_DEINIT // 不要deinit端口，可以避免部分IO灯光无法关闭的问题
 
 // Bootloader 指示灯
 // #define LED_DFU_INIT 22
