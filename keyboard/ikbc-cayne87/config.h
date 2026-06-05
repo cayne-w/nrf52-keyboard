@@ -119,7 +119,7 @@ static const uint8_t column_pin_array[MATRIX_COLS] = { 6, 8, 4, 7, 5, 25, 26, 27
 /* define if matrix has ghost */
 // #define MATRIX_HAS_GHOST /* 按键阵列是否出现Ghost Key，若没有加二极管则需要启用这个项目 */
 
-#define DEBOUNCE 5 /* 硬件消抖次数，设置为0则不消抖 */
+#define DEBOUNCE 12 /* 硬件消抖次数，设置为0则不消抖 */
 #define MATRIX_SCAN_DELAY_CYCLE 36 /* 按键扫描等待IO稳定的延时时长 */
 
 // 板载调试器设置
