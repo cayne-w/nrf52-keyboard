@@ -41,11 +41,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define BOOTMAGIC_KEY_ERASE_BOND KC_E /* 删除所有绑定 */
 
 // 键盘省电参数
-#define SLEEP_SLOW_TIMEOUT 600 // 键盘闲置多久后转入慢速扫描模式 (s)
+#define SLEEP_SLOW_TIMEOUT 900 // 键盘闲置多久后转入慢速扫描模式 (s)
 #define SLEEP_OFF_TIMEOUT 2700 // 键盘闲置多久后转入自动关机 (s)
 #define KEYBOARD_SCAN_INTERVAL 1 // 键盘最小时间单位TICK (ms)
-#define KEYBOARD_FAST_SCAN_INTERVAL 5 // 通常模式下，多久扫描一次键盘 (ms)
-#define KEYBOARD_SLOW_SCAN_INTERVAL 50 // 慢速模式下，多久扫描一次键盘 (ms)
+#define KEYBOARD_FAST_SCAN_INTERVAL 10 // 通常模式下，多久扫描一次键盘 (ms)
+#define KEYBOARD_SLOW_SCAN_INTERVAL 100 // 慢速模式下，多久扫描一次键盘 (ms)
 #define LED_AUTOOFF_TIME 0 /* LED自动熄灭时长(s)，设为0则不自动熄灭 */
 
 // 键盘额外功能
@@ -119,7 +119,7 @@ static const uint8_t column_pin_array[MATRIX_COLS] = { 6, 8, 4, 7, 5, 25, 26, 27
 /* define if matrix has ghost */
 // #define MATRIX_HAS_GHOST /* 按键阵列是否出现Ghost Key，若没有加二极管则需要启用这个项目 */
 
-#define DEBOUNCE 12 /* 硬件消抖次数，设置为0则不消抖 */
+#define DEBOUNCE 20 /* 硬件消抖次数，设置为0则不消抖 */
 #define MATRIX_SCAN_DELAY_CYCLE 36 /* 按键扫描等待IO稳定的延时时长 */
 
 // 板载调试器设置
