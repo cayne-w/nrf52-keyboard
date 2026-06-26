@@ -25,7 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "ble_config.h"
 #include "ble_hid_service.h"
 
-#define MAX_BUFFER_ENTRIES 5 /**< Number of elements that can be enqueued */
+#define MAX_BUFFER_ENTRIES 20 /**< Number of elements that can be enqueued */
 #define BASE_USB_HID_SPEC_VERSION 0x0101 /**< Version number of base USB HID Specification implemented by this application. */
 
 #define INPUT_REP_KEYBOARD_ID 0x7f /**< Id of reference to Keyboard Input Report. */
@@ -93,7 +93,7 @@ static bool m_in_boot_mode = false; /**< Current protocol mode. */
 
 /** Provide status of data list is full or not */
 #define BUFFER_LIST_FULL() \
-    ((MAX_BUFFER_ENTRIES == buffer_list.count - 1) ? true : false)
+    ((MAX_BUFFER_ENTRIES <= buffer_list.count) ? true : false)
 
 /** Provides status of buffer list is empty or not */
 #define BUFFER_LIST_EMPTY() \
@@ -286,27 +286,33 @@ static uint32_t buffer_enqueue(ble_hids_t* p_hids,
     uint32_t err_code = NRF_SUCCESS;
 
     if (BUFFER_LIST_FULL()) {
-        // Element cannot be buffered.
-        err_code = NRF_ERROR_NO_MEM;
-    } else {
-        // Make entry of buffer element and copy data.
-        element = &buffer_list.buffer[(buffer_list.wp)];
-        element->p_instance = p_hids;
-        element->index = report_index;
-        /* 限制长度，防止越界 */
-        if (pattern_len > sizeof(element->data)) {
-            pattern_len = sizeof(element->data);
+        // 队列已满：丢弃最旧的条目，为新数据腾出空间
+        // 优先保留最新的按键事件（尤其是按键释放事件）
+        BUFFER_ELEMENT_INIT(buffer_list.rp);
+        buffer_list.rp++;
+        buffer_list.count--;
+        if (buffer_list.rp == MAX_BUFFER_ENTRIES) {
+            buffer_list.rp = 0;
         }
-        element->data_len = (uint8_t)pattern_len;
-        /* 关键修复：拷贝按键报告内容到本地缓存，避免仅保存指针导致的重复发送 */
-        memcpy(element->data, p_key_pattern, element->data_len);
+    }
 
-        buffer_list.count++;
-        buffer_list.wp++;
+    // Make entry of buffer element and copy data.
+    element = &buffer_list.buffer[(buffer_list.wp)];
+    element->p_instance = p_hids;
+    element->index = report_index;
+    /* 限制长度，防止越界 */
+    if (pattern_len > sizeof(element->data)) {
+        pattern_len = sizeof(element->data);
+    }
+    element->data_len = (uint8_t)pattern_len;
+    /* 关键修复：拷贝按键报告内容到本地缓存，避免仅保存指针导致的重复发送 */
+    memcpy(element->data, p_key_pattern, element->data_len);
 
-        if (buffer_list.wp == MAX_BUFFER_ENTRIES) {
-            buffer_list.wp = 0;
-        }
+    buffer_list.count++;
+    buffer_list.wp++;
+
+    if (buffer_list.wp == MAX_BUFFER_ENTRIES) {
+        buffer_list.wp = 0;
     }
 
     return err_code;
@@ -377,13 +383,18 @@ void keys_send(uint8_t report_id, uint8_t key_pattern_len, uint8_t* p_key_patter
     if (report_index == INPUT_REP_INDEX_INVALID)
         return;
 
+    // 关键修复：若队列中已有未发送的报告，必须强制入队以保持 FIFO 顺序，
+    // 否则直接 send 成功的报告会越过队列中等待的旧报告，导致乱序
+    // （表现为按下、释放事件错位 → 出现按键重复或丢失）
+    if (!BUFFER_LIST_EMPTY()) {
+        UNUSED_VARIABLE(buffer_enqueue(&m_hids, report_index, p_key_pattern, key_pattern_len));
+        return;
+    }
+
     err_code = send_key(&m_hids, report_index, p_key_pattern, key_pattern_len);
     // check if send success, otherwise enqueue this.
-    if (err_code == NRF_ERROR_RESOURCES) {
-        // Buffer enqueue routine return value is not intentionally checked.
-        // Rationale: Its better to have a a few keys missing than have a system
-        // reset. Recommendation is to work out most optimal value for
-        // MAX_BUFFER_ENTRIES to minimize chances of buffer queue full condition
+    // 关键修复：除了 NRF_ERROR_RESOURCES，BUSY 同样是可重试的瞬时错误，也应入队
+    if (err_code == NRF_ERROR_RESOURCES || err_code == NRF_ERROR_BUSY) {
         UNUSED_VARIABLE(buffer_enqueue(&m_hids, report_index, p_key_pattern, key_pattern_len));
     }
 
@@ -441,6 +452,12 @@ static void on_hids_evt(ble_hids_t* p_hids, ble_hids_evt_t* p_evt)
         break;
 
     case BLE_HIDS_EVT_NOTIF_ENABLED:
+        // 主机已使能 CCCD 通知，尝试推送队列中堆积的报告
+        // （连接早期产生的按键报告会因 CCCD 未就绪而入队，此时是发送时机）
+        while (!BUFFER_LIST_EMPTY()) {
+            if (buffer_dequeue(true) != NRF_SUCCESS)
+                break;
+        }
         break;
 
     default:
@@ -458,10 +475,19 @@ void hid_service_init(ble_srv_error_handler_t err_handler)
 void hid_event_handler(enum user_event evt, void* arg)
 {
     uint8_t subevt = (uint32_t)arg;
-    if (evt == USER_EVT_BLE_STATE_CHANGE && subevt == BLE_STATE_DISCONNECT)
-        buffer_dequeue(false); // 断开后清空所有未发送的按键
-    else if (evt == USER_EVT_INTERNAL && subevt == INTERNAL_EVT_GATTS_TX_COMPLETE)
-        buffer_dequeue(true); // 发送完毕后出队列
+    if (evt == USER_EVT_BLE_STATE_CHANGE && subevt == BLE_STATE_DISCONNECT) {
+        // 断开后清空所有未发送的按键（原代码仅移除一个条目）
+        while (!BUFFER_LIST_EMPTY()) {
+            buffer_dequeue(false);
+        }
+    } else if (evt == USER_EVT_INTERNAL && subevt == INTERNAL_EVT_GATTS_TX_COMPLETE) {
+        // 发送完毕后持续出队列，直到队列为空或发送资源暂不可用
+        while (!BUFFER_LIST_EMPTY()) {
+            uint32_t err = buffer_dequeue(true);
+            if (err == NRF_ERROR_RESOURCES)
+                break;
+        }
+    }
 }
 
 /**
