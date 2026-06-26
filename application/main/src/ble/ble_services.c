@@ -60,8 +60,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 /*lint -emacro(524, MIN_CONN_INTERVAL) // Loss of precision */
 #define MIN_CONN_INTERVAL MSEC_TO_UNITS(7.5, UNIT_1_25_MS) /**< Minimum connection interval (7.5 ms) */
 #define MAX_CONN_INTERVAL MSEC_TO_UNITS(30, UNIT_1_25_MS) /**< Maximum connection interval (30 ms). */
-#define SLAVE_LATENCY 6 /**< Slave latency. */
-#define CONN_SUP_TIMEOUT MSEC_TO_UNITS(430, UNIT_10_MS) /**< Connection supervisory timeout (430 ms). */
+#define SLAVE_LATENCY 0 /**< Slave latency. */
+#define CONN_SUP_TIMEOUT MSEC_TO_UNITS(4000, UNIT_10_MS) /**< Connection supervisory timeout (4000 ms). */
 
 uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID; /**< Handle of the current connection. */
 static pm_peer_id_t m_peer_id; /**< Device reference handle to the current bonded central. */
@@ -581,6 +581,9 @@ static void gatt_init(void)
 {
     ret_code_t err_code = nrf_ble_gatt_init(&m_gatt, NULL);
     APP_ERROR_CHECK(err_code);
+
+    err_code = nrf_ble_gatt_att_mtu_periph_set(&m_gatt, NRF_SDH_BLE_GATT_MAX_MTU_SIZE);
+    APP_ERROR_CHECK(err_code);
 }
 
 /**
@@ -839,6 +842,17 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
 
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_DISCONNECT);
         break; // BLE_GAP_EVT_DISCONNECTED
+
+    case BLE_GAP_EVT_CONN_PARAM_UPDATE_REQUEST: {
+        ble_gap_conn_params_t const conn_params = {
+            .min_conn_interval = MIN_CONN_INTERVAL,
+            .max_conn_interval = MAX_CONN_INTERVAL,
+            .slave_latency     = SLAVE_LATENCY,
+            .conn_sup_timeout  = CONN_SUP_TIMEOUT,
+        };
+        err_code = sd_ble_gap_conn_param_update(p_ble_evt->evt.gap_evt.conn_handle, &conn_params);
+        APP_ERROR_CHECK(err_code);
+    } break;
 
     case BLE_GAP_EVT_PHY_UPDATE_REQUEST: {
         ble_gap_phys_t const phys = {
