@@ -1,11 +1,22 @@
 ### 前置准备
 
-- **工具链**：已经能在这个工程里正常用 `make`、`nrfjprog`（或 `pyocd`）烧录。  
-- **芯片型号**：`keyboard/ikbc-cayne87/Makefile` 已改为 `NRF_CHIP := nrf52832`。  
-- **SoftDevice**：默认用 `S112`（如果你改成 `S132`，下面命令不变，只要保证 app/bootloader 一致即可）。
+- **工具链**: 已经能在这个工程里正常用 `make`、`nrfjprog`（或 `pyocd`）烧录。
+- **芯片型号**: `keyboard/ikbc-cayne87/Makefile` 已改为 `NRF_CHIP := nrf52832`。
+- **SoftDevice**: 默认用 `S112`（如果你改成 `S132`，下面命令不变，只要保证 app/bootloader 一致即可）。
 
-下面所有命令都在目录：  
-`/Users/kayne/Workspace/mcu/nrf52-keyboard/keyboard/ikbc-cayne87` 中执行。
+#### Docker环境编译（可选）
+
+```bash
+cd xxx/nrf52-keyboard
+
+docker run --rm -it -v $PWD:/work lotlab/nrf52-keyboard
+```
+
+下面所有命令都在目录中执行：
+
+```bash
+cd xxx/nrf52-keyboard/keyboard/ikbc-cayne87
+```
 
 ---
 
@@ -70,7 +81,7 @@ make bootloader
 
 这会调用 `application/bootloader/project/Makefile`，生成：
 
-- `_build/nrf52_bootloader.hex`  
+- `_build/nrf52_bootloader.hex`
   这是 Nordic 的 **secure_ble bootloader**，支持 BLE DFU。
 
 ---
@@ -85,12 +96,12 @@ make merge_bootloader_all
 
 `application/main/project/bl.mk` 里定义了该目标，会生成：
 
-- `_build/nrf52_all.hex`  
+- `_build/nrf52_all.hex`
 
 内部包含：
 
-- SoftDevice  
-- Bootloader（BLE DFU）  
+- SoftDevice
+- Bootloader（BLE DFU）
 - 带 DFU setting 的签名应用固件
 
 ---
@@ -112,9 +123,9 @@ nrfjprog -f nrf52 --reset
 
 到这里：
 
-- 设备上已经有：SoftDevice + BLE DFU Bootloader + 主程序。  
-- 以后升级主程序，可以直接用：  
-  - 手机 `nRF Connect` / PC `nrfutil`，加载 `_build/nrf52_kbd_XXXX.zip`，通过 BLE DFU 升级；  
+- 设备上已经有：SoftDevice + BLE DFU Bootloader + 主程序。
+- 以后升级主程序，可以直接用：
+  - 手机 `nRF Connect` / PC `nrfutil`，加载 `_build/nrf52_kbd_XXXX.zip`，通过 BLE DFU 升级；
   - 或在开发调试期继续用 JLink 直接刷 `_build/nrf52_kbd.hex`（此时只覆盖应用区）。
 
 ---
@@ -144,30 +155,30 @@ make flash_bootloader  # 如需单独重刷 bootloader
 
 ### 简单结论
 
-在你现在这套 `ikbc-cayne87` 配置里：  
-- **没有**把“进入 bootloader”的功能绑到任何按键；  
+在你现在这套 `ikbc-cayne87` 配置里：
+- **没有**把“进入 bootloader”的功能绑到任何按键；
 - **默认进入 bootloader 的方式是通过 BLE 的 Buttonless DFU 服务，由手机/PC 的 DFU 工具触发**，不需要（也无法）靠键盘组合键直接进。
 
 ---
 
 ### 常用方式：用 nRF Connect 手机 App 进入 bootloader 并升级
 
-1. **确保设备已烧好全镜像并正常上电**  
+1. **确保设备已烧好全镜像并正常上电**
    已按你前面步骤烧了 `_build/nrf52_all.hex`，键盘能正常作为 BLE 键盘工作。
 
-2. **用手机安装并打开 Nordic 的 nRF Connect（BLE 版）**  
+2. **用手机安装并打开 Nordic 的 nRF Connect（BLE 版）**
    - iOS / Android 都有 “nRF Connect for Mobile”。
 
-3. **连接键盘设备**  
-   - 在 App 中扫描，找到你的设备名（例如 `IKBC_Cayne87`，名称来自 `config.h` 的 `PRODUCT`）。  
+3. **连接键盘设备**
+   - 在 App 中扫描，找到你的设备名（例如 `IKBC_Cayne87`，名称来自 `config.h` 的 `PRODUCT`）。
    - 点击连接。
 
-4. **发起 DFU 升级**（App 会自动让设备跳转到 bootloader）  
-   - 在 nRF Connect 里，选菜单里的 “DFU” 功能；  
-   - 选择你之前 `make package` 生成的 `_build/nrf52_kbd_XXXX.zip`；  
+4. **发起 DFU 升级**（App 会自动让设备跳转到 bootloader）
+   - 在 nRF Connect 里，选菜单里的 “DFU” 功能；
+   - 选择你之前 `make package` 生成的 `_build/nrf52_kbd_XXXX.zip`；
    - App 会：
-     - 先给应用的 Buttonless DFU 特性写入“进入 DFU”的命令；  
-     - 应用收到事件后，按 `ble_dfu_evt_handler` 的逻辑断开、设置寄存器并关机：  
+     - 先给应用的 Buttonless DFU 特性写入“进入 DFU”的命令；
+     - 应用收到事件后，按 `ble_dfu_evt_handler` 的逻辑断开、设置寄存器并关机：
 
 ```424:444:application/main/src/ble/ble_services.c
 static void ble_dfu_evt_handler(ble_dfu_buttonless_evt_type_t event)
