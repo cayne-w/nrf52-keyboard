@@ -3,6 +3,7 @@
 
 void matrix_deinit(void);
 void matrix_wakeup_prepare(void);
+void matrix_clear(void);
 
 #ifdef MATRIX_FORIGN_KEY
 void matrix_forign_add_oneshot(uint8_t row, uint8_t col);

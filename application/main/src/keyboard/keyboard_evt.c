@@ -18,8 +18,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "keyboard_evt.h"
 #include "../ble/ble_hid_service.h"
 #include "../ble/ble_services.h"
+#include "action_util.h"
 #include "ble_keyboard.h"
 #include "host.h"
+#include "keyboard.h"
+#include "keyboard_matrix.h"
 #include "passkey.h"
 #include "power_save.h"
 #include "sleep_reason.h"
@@ -119,8 +122,21 @@ static void internal_event_handler(enum user_event event, void* arg)
         ble_keyboard_powersave(!power_attached);
         break;
     case USER_EVT_BLE_STATE_CHANGE:
-        // 长时间没有连接，若没有接通电源则睡眠
-        if (subEvent == BLE_STATE_IDLE) {
+        if (subEvent == BLE_STATE_CONNECTED) {
+            // 重连后清除矩阵历史，使 keyboard_task 重新检测所有按下的按键
+            keyboard_clear();
+            matrix_clear();
+        } else if (subEvent == BLE_STATE_DISCONNECT) {
+            // 断连时清除键盘报告状态，防止重连后 OS 认为按键仍被按住
+            clear_keys();
+            clear_mods();
+            clear_weak_mods();
+#ifndef NO_ACTION_ONESHOT
+            clear_oneshot_mods();
+#endif
+            send_keyboard_report();
+        } else if (subEvent == BLE_STATE_IDLE) {
+            // 长时间没有连接，若没有接通电源则睡眠
             if (power_attached)
                 advertising_slow();
             else

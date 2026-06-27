@@ -242,6 +242,20 @@ uint8_t matrix_key_count(void)
 }
 
 /**
+ * @brief 清除矩阵状态，强制下次扫描重新检测所有按键
+ * 
+ * 在蓝牙断连时调用，确保重连后按键状态能正确同步。
+ */
+void matrix_clear(void)
+{
+    for (uint8_t i = 0; i < MATRIX_ROWS; i++) {
+        matrix[i] = 0;
+        matrix_debouncing[i] = 0;
+    }
+    debouncing = DEBOUNCE_RELOAD;
+}
+
+/**
  * @brief 禁用所有阵列针脚
  * 
  */

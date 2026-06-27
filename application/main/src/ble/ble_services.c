@@ -58,10 +58,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define APP_ADV_SLOW_DURATION 18000 /**< The advertising duration of slow advertising in units of 10 milliseconds. */
 
 /*lint -emacro(524, MIN_CONN_INTERVAL) // Loss of precision */
-#define MIN_CONN_INTERVAL MSEC_TO_UNITS(7.5, UNIT_1_25_MS) /**< Minimum connection interval (7.5 ms) */
-#define MAX_CONN_INTERVAL MSEC_TO_UNITS(30, UNIT_1_25_MS) /**< Maximum connection interval (30 ms). */
-#define SLAVE_LATENCY 6 /**< Slave latency. */
-#define CONN_SUP_TIMEOUT MSEC_TO_UNITS(430, UNIT_10_MS) /**< Connection supervisory timeout (430 ms). */
+#define MIN_CONN_INTERVAL MSEC_TO_UNITS(30, UNIT_1_25_MS) /**< Minimum connection interval (37.5 ms) */
+#define MAX_CONN_INTERVAL MSEC_TO_UNITS(50, UNIT_1_25_MS) /**< Maximum connection interval (50 ms). */
+#define SLAVE_LATENCY 0 /**< Slave latency (0 = no skipping, stable for macOS). */
+#define CONN_SUP_TIMEOUT MSEC_TO_UNITS(4000, UNIT_10_MS) /**< Connection supervisory timeout (4000 ms). */
 
 uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID; /**< Handle of the current connection. */
 static pm_peer_id_t m_peer_id; /**< Device reference handle to the current bonded central. */
@@ -826,6 +826,7 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
         err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
         APP_ERROR_CHECK(err_code);
         ble_conn_handle_change(m_conn_handle, p_ble_evt->evt.gap_evt.conn_handle);
+        trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_CONNECTED);
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
