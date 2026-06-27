@@ -86,3 +86,6 @@ EventRecorderStub.scvd
 
 .DS_Store
 Thumbs.db
+
+.opencode
+.codegraph
