@@ -41,8 +41,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define BOOTMAGIC_KEY_ERASE_BOND KC_E /* 删除所有绑定 */
 
 // 键盘省电参数
-#define SLEEP_SLOW_TIMEOUT 900 // 键盘闲置多久后转入慢速扫描模式 (s)
-#define SLEEP_OFF_TIMEOUT 2700 // 键盘闲置多久后转入自动关机 (s)
+#define SLEEP_SLOW_TIMEOUT 60 // 键盘闲置多久后转入慢速扫描模式 (s)
+#define SLEEP_OFF_TIMEOUT 120 // 键盘闲置多久后转入自动关机 (s)
 #define KEYBOARD_SCAN_INTERVAL 1 // 键盘最小时间单位TICK (ms)
 #define KEYBOARD_FAST_SCAN_INTERVAL 10 // 通常模式下，多久扫描一次键盘 (ms)
 #define KEYBOARD_SLOW_SCAN_INTERVAL 100 // 慢速模式下，多久扫描一次键盘 (ms)
@@ -59,6 +59,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MACRO_STORAGE /* 启用宏存储功能 */
 #define CONFIG_STORAGE /* 启用配置存储功能 */
 #define BUTTONLESS_DFU /* 启用免按钮DFU */
+#define CUSTOM_BOOTLOADER_ADDR 0x78000
 
 #define DEBUG_SKIP_PWRON_CHECK /*  直接开机而跳过开机条件检测，用于调试 */
 

@@ -324,19 +324,22 @@ int main(void)
     xprintf("\n========== IKBC_C87 BOOT [v" _XSTR(VERSION) "] ==========\n");
 
     // Initialize.
+    xprintf("[MAIN] timers_init...\n");
     timers_init();
+    xprintf("[MAIN] power_management_init...\n");
     power_management_init();
-    storage_init();       //存储初始化
-	
+
     set_stage(KBD_STATE_PRE_INIT);
     xprintf("[MAIN] KBD_STATE_PRE_INIT\n");
 
     ble_stack_init();
+    scheduler_init();
+    xprintf("[MAIN] storage_init...\n");
+    storage_init();       //存储初始化
     // 启用DCDC模式
 #ifdef DCDC_ENABLED
     sd_power_dcdc_mode_set(1);
 #endif
-    scheduler_init();
     ble_services_init();
     xprintf("[MAIN] BLE services initialized\n");
     battery_service_init();

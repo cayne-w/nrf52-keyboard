@@ -29,6 +29,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "ble_srv_common.h"
 #include "nrf_ble_gatt.h"
 #include "nrf_ble_qwr.h"
+#include "nrf_sdm.h"
 #include "nrf_bootloader_info.h"
 #include "nrf_power.h"
 #include "nrf_pwr_mgmt.h"
@@ -59,10 +60,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define APP_ADV_SLOW_DURATION 18000 /**< The advertising duration of slow advertising in units of 10 milliseconds. */
 
 /*lint -emacro(524, MIN_CONN_INTERVAL) // Loss of precision */
-#define MIN_CONN_INTERVAL MSEC_TO_UNITS(7.5, UNIT_1_25_MS) /**< Minimum connection interval (7.5 ms) */
+#define MIN_CONN_INTERVAL MSEC_TO_UNITS(15, UNIT_1_25_MS) /**< Minimum connection interval (15 ms, matching macOS HID default). */
 #define MAX_CONN_INTERVAL MSEC_TO_UNITS(30, UNIT_1_25_MS) /**< Maximum connection interval (30 ms). */
-#define SLAVE_LATENCY 6 /**< Slave latency. */
-#define CONN_SUP_TIMEOUT MSEC_TO_UNITS(430, UNIT_10_MS) /**< Connection supervisory timeout (430 ms). */
+#define SLAVE_LATENCY 0 /**< Slave latency (macOS forces 0 for HID). */
+#define CONN_SUP_TIMEOUT MSEC_TO_UNITS(1000, UNIT_10_MS) /**< Connection supervisory timeout (1000 ms). */
 
 uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID; /**< Handle of the current connection. */
 static pm_peer_id_t m_peer_id; /**< Device reference handle to the current bonded central. */
@@ -450,7 +451,7 @@ static void advertising_config_get(ble_adv_modes_config_t* p_config)
 #else
     p_config->ble_adv_whitelist_enabled = false;
 #endif
-    p_config->ble_adv_directed_high_duty_enabled = true;
+    p_config->ble_adv_directed_high_duty_enabled = false;
     p_config->ble_adv_directed_enabled = false;
     p_config->ble_adv_directed_interval = 0;
     p_config->ble_adv_directed_timeout = 0;
@@ -906,17 +907,14 @@ void ble_stack_init(void)
     err_code = nrf_sdh_enable_request();
     APP_ERROR_CHECK(err_code);
 
-    // Configure the BLE stack using the default settings.
-    // Fetch the start address of the application RAM.
     uint32_t ram_start = 0;
     err_code = nrf_sdh_ble_default_cfg_set(APP_BLE_CONN_CFG_TAG, &ram_start);
     APP_ERROR_CHECK(err_code);
 
-    // Enable BLE stack.
     err_code = nrf_sdh_ble_enable(&ram_start);
+    xprintf("[BLE] sd_ble_enable ram_start=0x%08x err_code=%d\n", ram_start, err_code);
     APP_ERROR_CHECK(err_code);
 
-    // Register a handler for BLE events.
     NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);
 }
 

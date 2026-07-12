@@ -23,6 +23,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "queue.h"
 #include "util.h"
 #include "nrf_sdh.h"
+#include "app_scheduler.h"
 
 // keymap
 #include "keymap.h"
@@ -256,6 +257,7 @@ static void storage_callback_init()
     APP_ERROR_CHECK(err_code);
     while (!s_fds_initialized)             // 等待初始化完成
     {
+        app_sched_execute();
         // 等待过程中待机
 #ifdef SOFTDEVICE_PRESENT
         if (nrf_sdh_is_enabled()) {
