@@ -24,6 +24,7 @@ EXTRAKEY_ENABLE = yes	# 启用媒体键功能
 NKRO_ENABLE = no	# 蓝牙模式下无需USB全键无冲
 USB_6KRO_ENABLE = no # 蓝牙模式下无需USB六键无冲
 
+CONSOLE_ENABLE = yes	# 启用 RTT 日志输出
 ONBOARD_CMSIS_DAP = no # 蓝牙模式下无需板载调试器（CH554）
 
 ########## STOP HERE ##########

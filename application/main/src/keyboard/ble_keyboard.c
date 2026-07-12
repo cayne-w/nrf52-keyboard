@@ -32,6 +32,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "usb_comm.h"
 
 #include "nrf_drv_wdt.h"
+#include "mbed/xprintf.h"
 
 APP_TIMER_DEF(m_keyboard_scan_timer); /**< keyboard scan timer. */
 APP_TIMER_DEF(m_keyboard_debounce_timer); /**< keyboard debounce timer. */
@@ -217,19 +218,18 @@ void ble_keyboard_powersave(bool save)
  */
 void ble_keyboard_init(void)
 {
+    xprintf("[KBD] ble_keyboard_init start\n");
     keyboard_setup(); // 初始化各按键阵列
-    // - martix_setup();
     keyboard_led_init(); // 初始化LED
 #ifdef HAS_USB
     usb_comm_init(); // 初始化USB通讯
 #endif
     keyboard_init(); // 初始化键盘所需的其他东西，包括按键阵列和Bootmagic
-    // - timer_init();
-    // - matrix_init();
     host_set_driver(&driver); // 设置 host driver
     keyboard_timer_init(); // 初始化计时器
     macro_play_timer_init(); // 初始化宏计数器
 #ifdef ENABLE_WATCHDOG
     keyboard_wdt_init(); // 初始化看门狗
 #endif
+    xprintf("[KBD] ble_keyboard_init done\n");
 }

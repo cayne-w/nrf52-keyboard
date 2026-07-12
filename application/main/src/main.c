@@ -99,6 +99,8 @@
 #include "keyboard/keyboard_led.h"
 #include "keyboard/keyboard_matrix.h"
 #include "protocol/usb_comm.h"
+#include "SEGGER_RTT.h"
+#include "mbed/xprintf.h"
 
 #define DEAD_BEEF 0xDEADBEEF /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
@@ -237,6 +239,7 @@ void notify_sleep(enum sleep_evt_type mode)
  */
 static void sleep_mode_enter(bool keyboard_wakeup)
 {
+    xprintf("[MAIN] Enter sleep mode (wakeup=%d)\n", keyboard_wakeup);
     reset_prepare();
     if (keyboard_wakeup) {
         matrix_wakeup_prepare(); // 准备按键阵列用于唤醒
@@ -259,6 +262,7 @@ static void sleep_mode_enter(bool keyboard_wakeup)
  */
 void sleep(enum SLEEP_REASON reason)
 {
+    xprintf("[MAIN] Sleep reason=%d\n", reason);
     switch (reason) {
     case SLEEP_NO_CONNECTION:
     case SLEEP_TIMEOUT:
@@ -314,12 +318,18 @@ bool erase_bonds = false;
  */
 int main(void)
 {
+    SEGGER_RTT_Init();
+#define _STR(x) #x
+#define _XSTR(x) _STR(x)
+    xprintf("\n========== IKBC_C87 BOOT [v" _XSTR(VERSION) "] ==========\n");
+
     // Initialize.
     timers_init();
     power_management_init();
     storage_init();       //存储初始化
 	
     set_stage(KBD_STATE_PRE_INIT);
+    xprintf("[MAIN] KBD_STATE_PRE_INIT\n");
 
     ble_stack_init();
     // 启用DCDC模式
@@ -328,10 +338,12 @@ int main(void)
 #endif
     scheduler_init();
     ble_services_init();
+    xprintf("[MAIN] BLE services initialized\n");
     battery_service_init();
     hid_service_init(service_error_handler);
     adc_init();
     ble_keyboard_init();
+    xprintf("[MAIN] Keyboard init complete\n");
 
 #if !defined(BOOTMAGIC_ENABLE) && defined(BOOTCHECK_ENABLE)
     // use internal function to check if should boot.

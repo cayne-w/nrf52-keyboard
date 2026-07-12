@@ -23,6 +23,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "passkey.h"
 #include "power_save.h"
 #include "sleep_reason.h"
+#include "mbed/xprintf.h"
 #include <stdlib.h>
 
 #include "queue.h"
@@ -105,7 +106,7 @@ static void internal_event_handler(enum user_event event, void* arg)
     uint8_t subEvent = (uint32_t)arg;
     switch (event) {
     case USER_EVT_SLEEP:
-        // 休眠时，设置休眠原因便于下次免按键启动
+        xprintf("[EVT] Sleep reason=%d\n", subEvent);
         sleep_reason_set(subEvent == SLEEP_EVT_AUTO);
         break;
 #ifdef PIN_CHARGING
@@ -113,13 +114,13 @@ static void internal_event_handler(enum user_event event, void* arg)
 #else
     case USER_EVT_USB:
 #endif
-        // 接入和断开电源后，禁用和启用省电模式
         power_attached = subEvent > 0;
+        xprintf("[EVT] USB/power attached=%d\n", power_attached);
         power_save_set_mode(!power_attached);
         ble_keyboard_powersave(!power_attached);
         break;
     case USER_EVT_BLE_STATE_CHANGE:
-        // 长时间没有连接，若没有接通电源则睡眠
+        xprintf("[EVT] BLE state=%d\n", subEvent);
         if (subEvent == BLE_STATE_IDLE) {
             if (power_attached)
                 advertising_slow();
@@ -128,12 +129,12 @@ static void internal_event_handler(enum user_event event, void* arg)
         }
         break;
     case USER_EVT_BLE_PASSKEY_STATE:
-        // 需要输入Passkey，则输入passkey
+        xprintf("[EVT] Passkey state=%d\n", subEvent);
         if (subEvent == PASSKEY_STATE_REQUIRE)
             passkey_req_handler();
         break;
     case USER_EVT_PROTOCOL:
-        // 更改 hid 协议
+        xprintf("[EVT] HID protocol=%d\n", subEvent);
         keyboard_protocol = subEvent;
         break;
     default:

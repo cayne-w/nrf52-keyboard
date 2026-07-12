@@ -40,6 +40,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "ble_config.h"
 #include "data_storage.h"
 #include "util.h"
+#include "mbed/xprintf.h"
 #include <string.h>
 
 #define PNP_ID_VENDOR_ID_SOURCE 0x02 /**< Vendor ID Source. */
@@ -396,6 +397,7 @@ static void switch_device_update(pm_peer_id_t peer_id)
  */
 void advertising_start(bool erase_bonds)
 {
+    xprintf("[BLE] advertising_start erase=%d\n", erase_bonds);
     if (erase_bonds) {
         delete_bonds();
         // Advertising is started by PM_EVT_PEERS_DELETE_SUCCEEDED event.
@@ -513,6 +515,7 @@ static void pm_evt_handler(pm_evt_t const* p_evt)
     switch (p_evt->evt_id) {
     case PM_EVT_CONN_SEC_SUCCEEDED:
         m_peer_id = p_evt->peer_id;
+        xprintf("[BLE] Security established, peer=%d\n", p_evt->peer_id);
 #ifdef MULTI_DEVICE_SWITCH
         switch_device_update(m_peer_id);
 #endif
@@ -520,6 +523,7 @@ static void pm_evt_handler(pm_evt_t const* p_evt)
         break;
 
     case PM_EVT_BONDED_PEER_CONNECTED:
+        xprintf("[BLE] Bonded peer reconnected, peer=%d\n", p_evt->peer_id);
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_CONNECTED);
         break;
 
@@ -698,28 +702,35 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 
     switch (ble_adv_evt) {
     case BLE_ADV_EVT_DIRECTED_HIGH_DUTY:
+        xprintf("[BLE] ADV directed high duty\n");
         break;
 
     case BLE_ADV_EVT_DIRECTED:
+        xprintf("[BLE] ADV directed\n");
         break;
 
     case BLE_ADV_EVT_FAST:
+        xprintf("[BLE] ADV fast\n");
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_FAST_ADV);
         break;
 
     case BLE_ADV_EVT_SLOW:
+        xprintf("[BLE] ADV slow\n");
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_SLOW_ADV);
         break;
 
     case BLE_ADV_EVT_FAST_WHITELIST:
+        xprintf("[BLE] ADV fast (whitelist)\n");
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_FAST_ADV);
         break;
 
     case BLE_ADV_EVT_SLOW_WHITELIST:
+        xprintf("[BLE] ADV slow (whitelist)\n");
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_SLOW_ADV);
         break;
 
     case BLE_ADV_EVT_IDLE:
+        xprintf("[BLE] ADV idle\n");
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_IDLE);
         break;
 
@@ -826,10 +837,12 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
         err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
         APP_ERROR_CHECK(err_code);
         ble_conn_handle_change(m_conn_handle, p_ble_evt->evt.gap_evt.conn_handle);
+        xprintf("[BLE] Connected, handle=%d\n", m_conn_handle);
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
         ble_conn_handle_change(m_conn_handle, BLE_CONN_HANDLE_INVALID);
+        xprintf("[BLE] Disconnected, reason=%d\n", p_ble_evt->evt.gap_evt.params.disconnected.reason);
         m_conn_handle = BLE_CONN_HANDLE_INVALID;
 
         if (on_disconnect_handler != NULL) {
