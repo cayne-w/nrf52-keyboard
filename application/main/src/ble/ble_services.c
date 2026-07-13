@@ -49,9 +49,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define APP_BLE_OBSERVER_PRIO 3 /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 #define APP_BLE_CONN_CFG_TAG 1 /**< A tag identifying the SoftDevice BLE configuration. */
 
-#define FIRST_CONN_PARAMS_UPDATE_DELAY APP_TIMER_TICKS(5000) /**< Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
+#define FIRST_CONN_PARAMS_UPDATE_DELAY APP_TIMER_TICKS(1000) /**< Time from initiating event (connect or start of notification) to first call to sd_ble_gap_conn_param_update (1 second). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY APP_TIMER_TICKS(30000) /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
-#define MAX_CONN_PARAMS_UPDATE_COUNT 3 /**< Number of attempts before giving up the connection parameter negotiation. */
+#define MAX_CONN_PARAMS_UPDATE_COUNT 20 /**< Number of attempts before giving up the connection parameter negotiation. */
 
 #define APP_ADV_FAST_INTERVAL 0x0028 /**< Fast advertising interval (in units of 0.625 ms. This value corresponds to 25 ms.). */
 #define APP_ADV_SLOW_INTERVAL 0x0C80 /**< Slow advertising interval (in units of 0.625 ms. This value corrsponds to 2 seconds). */
@@ -63,7 +63,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define MIN_CONN_INTERVAL MSEC_TO_UNITS(15, UNIT_1_25_MS) /**< Minimum connection interval (15 ms, matching macOS HID default). */
 #define MAX_CONN_INTERVAL MSEC_TO_UNITS(30, UNIT_1_25_MS) /**< Maximum connection interval (30 ms). */
 #define SLAVE_LATENCY 0 /**< Slave latency (macOS forces 0 for HID). */
-#define CONN_SUP_TIMEOUT MSEC_TO_UNITS(1000, UNIT_10_MS) /**< Connection supervisory timeout (1000 ms). */
+#define CONN_SUP_TIMEOUT MSEC_TO_UNITS(4000, UNIT_10_MS) /**< Connection supervisory timeout (4000 ms). */
 
 uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID; /**< Handle of the current connection. */
 static pm_peer_id_t m_peer_id; /**< Device reference handle to the current bonded central. */
@@ -421,15 +421,15 @@ void advertising_start(bool erase_bonds)
  */
 void advertising_restart(ble_adv_mode_t mode, bool whitelist)
 {
+    if (!whitelist) {
+        ble_advertising_restart_without_whitelist(&m_advertising);
+    }
+
     if (m_conn_handle == BLE_CONN_HANDLE_INVALID) {
         sd_ble_gap_adv_stop(m_advertising.adv_handle);
         ble_advertising_start(&m_advertising, mode);
     } else {
         sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-    }
-
-    if (!whitelist) {
-        ble_advertising_restart_without_whitelist(&m_advertising);
     }
 }
 
@@ -461,7 +461,7 @@ static void advertising_config_get(ble_adv_modes_config_t* p_config)
     p_config->ble_adv_slow_enabled = true;
     p_config->ble_adv_slow_interval = APP_ADV_SLOW_INTERVAL;
     p_config->ble_adv_slow_timeout = APP_ADV_SLOW_DURATION;
-    p_config->ble_adv_on_disconnect_disabled = false;
+    p_config->ble_adv_on_disconnect_disabled = true;
 }
 
 #ifdef BUTTONLESS_DFU
@@ -521,11 +521,33 @@ static void pm_evt_handler(pm_evt_t const* p_evt)
         switch_device_update(m_peer_id);
 #endif
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_CONNECTED);
+        // Immediately request connection parameter update to override
+        // the central's default supervision timeout (macOS uses 360ms).
+        {
+            ble_gap_conn_params_t cp;
+            memset(&cp, 0, sizeof(cp));
+            cp.min_conn_interval = MIN_CONN_INTERVAL;
+            cp.max_conn_interval = MAX_CONN_INTERVAL;
+            cp.slave_latency = SLAVE_LATENCY;
+            cp.conn_sup_timeout = CONN_SUP_TIMEOUT;
+            sd_ble_gap_conn_param_update(p_evt->conn_handle, &cp);
+        }
         break;
 
     case PM_EVT_BONDED_PEER_CONNECTED:
         xprintf("[BLE] Bonded peer reconnected, peer=%d\n", p_evt->peer_id);
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_CONNECTED);
+        // Immediately request connection parameter update to override
+        // the central's default supervision timeout (macOS uses 360ms).
+        {
+            ble_gap_conn_params_t cp;
+            memset(&cp, 0, sizeof(cp));
+            cp.min_conn_interval = MIN_CONN_INTERVAL;
+            cp.max_conn_interval = MAX_CONN_INTERVAL;
+            cp.slave_latency = SLAVE_LATENCY;
+            cp.conn_sup_timeout = CONN_SUP_TIMEOUT;
+            sd_ble_gap_conn_param_update(p_evt->conn_handle, &cp);
+        }
         break;
 
     case PM_EVT_PEERS_DELETE_SUCCEEDED:

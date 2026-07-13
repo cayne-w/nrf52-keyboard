@@ -121,7 +121,9 @@ static void internal_event_handler(enum user_event event, void* arg)
         break;
     case USER_EVT_BLE_STATE_CHANGE:
         xprintf("[EVT] BLE state=%d\n", subEvent);
-        if (subEvent == BLE_STATE_IDLE) {
+        if (subEvent == BLE_STATE_DISCONNECT) {
+            advertising_start(false);
+        } else if (subEvent == BLE_STATE_IDLE) {
             if (power_attached)
                 advertising_slow();
             else
