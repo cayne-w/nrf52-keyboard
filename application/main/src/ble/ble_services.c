@@ -49,7 +49,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define APP_BLE_OBSERVER_PRIO 3 /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 #define APP_BLE_CONN_CFG_TAG 1 /**< A tag identifying the SoftDevice BLE configuration. */
 
-#define FIRST_CONN_PARAMS_UPDATE_DELAY APP_TIMER_TICKS(1000) /**< Time from initiating event (connect or start of notification) to first call to sd_ble_gap_conn_param_update (1 second). */
+#define FIRST_CONN_PARAMS_UPDATE_DELAY APP_TIMER_TICKS(5000) /**< Time from initiating event (connect or start of notification) to first call to sd_ble_gap_conn_param_update (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY APP_TIMER_TICKS(30000) /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
 #define MAX_CONN_PARAMS_UPDATE_COUNT 20 /**< Number of attempts before giving up the connection parameter negotiation. */
 
@@ -67,6 +67,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID; /**< Handle of the current connection. */
 static pm_peer_id_t m_peer_id; /**< Device reference handle to the current bonded central. */
+static bool m_init_done = false; /**< Whether BLE initialization is complete. */
+static uint32_t m_conn_start_ticks; /**< RTC ticks at connection start. */
 
 #ifdef MULTI_DEVICE_SWITCH
 
@@ -398,6 +400,7 @@ static void switch_device_update(pm_peer_id_t peer_id)
  */
 void advertising_start(bool erase_bonds)
 {
+    m_init_done = true;
     xprintf("[BLE] advertising_start erase=%d\n", erase_bonds);
     if (erase_bonds) {
         delete_bonds();
@@ -521,33 +524,11 @@ static void pm_evt_handler(pm_evt_t const* p_evt)
         switch_device_update(m_peer_id);
 #endif
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_CONNECTED);
-        // Immediately request connection parameter update to override
-        // the central's default supervision timeout (macOS uses 360ms).
-        {
-            ble_gap_conn_params_t cp;
-            memset(&cp, 0, sizeof(cp));
-            cp.min_conn_interval = MIN_CONN_INTERVAL;
-            cp.max_conn_interval = MAX_CONN_INTERVAL;
-            cp.slave_latency = SLAVE_LATENCY;
-            cp.conn_sup_timeout = CONN_SUP_TIMEOUT;
-            sd_ble_gap_conn_param_update(p_evt->conn_handle, &cp);
-        }
         break;
 
     case PM_EVT_BONDED_PEER_CONNECTED:
         xprintf("[BLE] Bonded peer reconnected, peer=%d\n", p_evt->peer_id);
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_CONNECTED);
-        // Immediately request connection parameter update to override
-        // the central's default supervision timeout (macOS uses 360ms).
-        {
-            ble_gap_conn_params_t cp;
-            memset(&cp, 0, sizeof(cp));
-            cp.min_conn_interval = MIN_CONN_INTERVAL;
-            cp.max_conn_interval = MAX_CONN_INTERVAL;
-            cp.slave_latency = SLAVE_LATENCY;
-            cp.conn_sup_timeout = CONN_SUP_TIMEOUT;
-            sd_ble_gap_conn_param_update(p_evt->conn_handle, &cp);
-        }
         break;
 
     case PM_EVT_PEERS_DELETE_SUCCEEDED:
@@ -686,7 +667,7 @@ static void dfu_init(void)
  */
 static void conn_params_error_handler(uint32_t nrf_error)
 {
-    APP_ERROR_HANDLER(nrf_error);
+    xprintf("[BLE] Conn params negotiation error: %lu\n", nrf_error);
 }
 
 /**
@@ -856,16 +837,32 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
 
     switch (p_ble_evt->header.evt_id) {
     case BLE_GAP_EVT_CONNECTED:
+        if (!m_init_done) {
+            xprintf("[BLE] Reject early connection (init not done)\n");
+            sd_ble_gap_disconnect(p_ble_evt->evt.gap_evt.conn_handle,
+                                  BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+            break;
+        }
         m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
         err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
         APP_ERROR_CHECK(err_code);
         ble_conn_handle_change(m_conn_handle, p_ble_evt->evt.gap_evt.conn_handle);
-        xprintf("[BLE] Connected, handle=%d\n", m_conn_handle);
+        m_conn_start_ticks = app_timer_cnt_get();
+        {
+            ble_gap_conn_params_t const* init = &p_ble_evt->evt.gap_evt.params.connected.conn_params;
+            xprintf("[BLE] Connected, handle=%d, interval=%d, latency=%d, timeout=%d\n",
+                    m_conn_handle, init->min_conn_interval, init->slave_latency, init->conn_sup_timeout);
+        }
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
         ble_conn_handle_change(m_conn_handle, BLE_CONN_HANDLE_INVALID);
-        xprintf("[BLE] Disconnected, reason=%d\n", p_ble_evt->evt.gap_evt.params.disconnected.reason);
+        {
+            uint32_t delta = app_timer_cnt_diff_compute(app_timer_cnt_get(), m_conn_start_ticks);
+            uint32_t ms = (delta * 1000) / 32768;
+            xprintf("[BLE] Disconnected, reason=%d, duration=%dms\n",
+                    p_ble_evt->evt.gap_evt.params.disconnected.reason, ms);
+        }
         m_conn_handle = BLE_CONN_HANDLE_INVALID;
 
         if (on_disconnect_handler != NULL) {
@@ -875,6 +872,13 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
 
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_DISCONNECT);
         break; // BLE_GAP_EVT_DISCONNECTED
+
+    case BLE_GAP_EVT_CONN_PARAM_UPDATE: {
+        ble_gap_conn_params_t const* cp = &p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params;
+        xprintf("[BLE] Conn param updated: interval=%d, latency=%d, timeout=%d\n",
+                cp->min_conn_interval, cp->slave_latency, cp->conn_sup_timeout);
+        break;
+    }
 
     case BLE_GAP_EVT_PHY_UPDATE_REQUEST: {
         ble_gap_phys_t const phys = {
