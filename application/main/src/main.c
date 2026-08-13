@@ -323,6 +323,18 @@ int main(void)
 #define _XSTR(x) _STR(x)
     xprintf("\n========== IKBC_C87 BOOT [v" _XSTR(VERSION) "] ==========\n");
 
+    // 打印并清除复位原因（区分完整复位 / 看门狗复位 / 软复位等）
+    uint32_t reset_reas = NRF_POWER->RESETREAS;
+    NRF_POWER->RESETREAS = reset_reas;
+    xprintf("[MAIN] RESETREAS=0x%08x (pin=%d dog=%d sreq=%d lockup=%d off=%d dif=%d)\n",
+            reset_reas,
+            (reset_reas & POWER_RESETREAS_RESETPIN_Msk) ? 1 : 0,
+            (reset_reas & POWER_RESETREAS_DOG_Msk) ? 1 : 0,
+            (reset_reas & POWER_RESETREAS_SREQ_Msk) ? 1 : 0,
+            (reset_reas & POWER_RESETREAS_LOCKUP_Msk) ? 1 : 0,
+            (reset_reas & POWER_RESETREAS_OFF_Msk) ? 1 : 0,
+            (reset_reas & POWER_RESETREAS_DIF_Msk) ? 1 : 0);
+
     // Initialize.
     xprintf("[MAIN] timers_init...\n");
     timers_init();

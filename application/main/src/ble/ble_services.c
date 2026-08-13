@@ -60,15 +60,31 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define APP_ADV_SLOW_DURATION 18000 /**< The advertising duration of slow advertising in units of 10 milliseconds. */
 
 /*lint -emacro(524, MIN_CONN_INTERVAL) // Loss of precision */
-#define MIN_CONN_INTERVAL MSEC_TO_UNITS(15, UNIT_1_25_MS) /**< Minimum connection interval (15 ms, matching macOS HID default). */
-#define MAX_CONN_INTERVAL MSEC_TO_UNITS(30, UNIT_1_25_MS) /**< Maximum connection interval (30 ms). */
+/* 连接间隔可在各键盘 config.h 中通过 BLE_CONN_INTERVAL_MIN_MS / BLE_CONN_INTERVAL_MAX_MS 调整（抗干扰实验参数）。
+ * 注意：macOS HID 通常会固定连接间隔为 15ms，改大后实际值以 RTT 日志中的 conn_params 协商结果为准。 */
+#ifndef BLE_CONN_INTERVAL_MIN_MS
+#define BLE_CONN_INTERVAL_MIN_MS 15 /**< Minimum connection interval (15 ms, matching macOS HID default). */
+#endif
+#ifndef BLE_CONN_INTERVAL_MAX_MS
+#define BLE_CONN_INTERVAL_MAX_MS 30 /**< Maximum connection interval (30 ms). */
+#endif
+#define MIN_CONN_INTERVAL MSEC_TO_UNITS(BLE_CONN_INTERVAL_MIN_MS, UNIT_1_25_MS)
+#define MAX_CONN_INTERVAL MSEC_TO_UNITS(BLE_CONN_INTERVAL_MAX_MS, UNIT_1_25_MS)
 #define SLAVE_LATENCY 0 /**< Slave latency (macOS forces 0 for HID). */
 #define CONN_SUP_TIMEOUT MSEC_TO_UNITS(4000, UNIT_10_MS) /**< Connection supervisory timeout (4000 ms). */
 
 uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID; /**< Handle of the current connection. */
 static pm_peer_id_t m_peer_id; /**< Device reference handle to the current bonded central. */
 static bool m_init_done = false; /**< Whether BLE initialization is complete. */
-static uint32_t m_conn_start_ticks; /**< RTC ticks at connection start. */
+
+/**
+ * @brief 获取自开机以来的毫秒数（用于日志时间戳）
+ */
+static uint32_t ble_uptime_ms(void)
+{
+    uint32_t ticks = app_timer_cnt_diff_compute(app_timer_cnt_get(), 0);
+    return (uint32_t)(((uint64_t)ticks * 1000) / APP_TIMER_CLOCK_FREQ);
+}
 
 #ifdef MULTI_DEVICE_SWITCH
 
@@ -401,7 +417,6 @@ static void switch_device_update(pm_peer_id_t peer_id)
 void advertising_start(bool erase_bonds)
 {
     m_init_done = true;
-    xprintf("[BLE] advertising_start erase=%d\n", erase_bonds);
     if (erase_bonds) {
         delete_bonds();
         // Advertising is started by PM_EVT_PEERS_DELETE_SUCCEEDED event.
@@ -519,7 +534,6 @@ static void pm_evt_handler(pm_evt_t const* p_evt)
     switch (p_evt->evt_id) {
     case PM_EVT_CONN_SEC_SUCCEEDED:
         m_peer_id = p_evt->peer_id;
-        xprintf("[BLE] Security established, peer=%d\n", p_evt->peer_id);
 #ifdef MULTI_DEVICE_SWITCH
         switch_device_update(m_peer_id);
 #endif
@@ -527,7 +541,6 @@ static void pm_evt_handler(pm_evt_t const* p_evt)
         break;
 
     case PM_EVT_BONDED_PEER_CONNECTED:
-        xprintf("[BLE] Bonded peer reconnected, peer=%d\n", p_evt->peer_id);
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_CONNECTED);
         break;
 
@@ -543,12 +556,17 @@ static void pm_evt_handler(pm_evt_t const* p_evt)
         }
         break;
 
-    case PM_EVT_CONN_SEC_CONFIG_REQ: {
-        // allow pairing request from an already bonded peer.
-        pm_conn_sec_config_t conn_sec_config = { .allow_repairing = true };
-        pm_conn_sec_config_reply(p_evt->conn_handle, &conn_sec_config);
+    case PM_EVT_CONN_SEC_CONFIG_REQ:
+        {
+            // allow pairing request from an already bonded peer.
+            pm_conn_sec_config_t conn_sec_config = { .allow_repairing = true };
+            pm_conn_sec_config_reply(p_evt->conn_handle, &conn_sec_config);
+        }
         break;
-    }
+
+    case PM_EVT_ERROR_UNEXPECTED:
+        xprintf("[BLE] PM_EVT_ERROR_UNEXPECTED err=%d\n", p_evt->params.error_unexpected.error);
+        break;
 
     default:
         break;
@@ -671,6 +689,16 @@ static void conn_params_error_handler(uint32_t nrf_error)
 }
 
 /**
+ * @brief Function for handling Connection Parameters module events.
+ *
+ * @param[in]   p_evt   Event received from the Connection Parameters module.
+ */
+static void conn_params_evt_handler(ble_conn_params_evt_t* p_evt)
+{
+    UNUSED_PARAMETER(p_evt);
+}
+
+/**
  * @brief Function for initializing the Connection Parameters module.
  */
 static void conn_params_init(void)
@@ -686,7 +714,7 @@ static void conn_params_init(void)
     cp_init.max_conn_params_update_count = MAX_CONN_PARAMS_UPDATE_COUNT;
     cp_init.start_on_notify_cccd_handle = BLE_GATT_HANDLE_INVALID;
     cp_init.disconnect_on_fail = false;
-    cp_init.evt_handler = NULL;
+    cp_init.evt_handler = conn_params_evt_handler;
     cp_init.error_handler = conn_params_error_handler;
 
     err_code = ble_conn_params_init(&cp_init);
@@ -706,35 +734,28 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 
     switch (ble_adv_evt) {
     case BLE_ADV_EVT_DIRECTED_HIGH_DUTY:
-        xprintf("[BLE] ADV directed high duty\n");
         break;
 
     case BLE_ADV_EVT_DIRECTED:
-        xprintf("[BLE] ADV directed\n");
         break;
 
     case BLE_ADV_EVT_FAST:
-        xprintf("[BLE] ADV fast\n");
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_FAST_ADV);
         break;
 
     case BLE_ADV_EVT_SLOW:
-        xprintf("[BLE] ADV slow\n");
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_SLOW_ADV);
         break;
 
     case BLE_ADV_EVT_FAST_WHITELIST:
-        xprintf("[BLE] ADV fast (whitelist)\n");
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_FAST_ADV);
         break;
 
     case BLE_ADV_EVT_SLOW_WHITELIST:
-        xprintf("[BLE] ADV slow (whitelist)\n");
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_SLOW_ADV);
         break;
 
     case BLE_ADV_EVT_IDLE:
-        xprintf("[BLE] ADV idle\n");
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_IDLE);
         break;
 
@@ -783,34 +804,48 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
     }
 }
 
-//动态发射功率
-#ifdef DYNAMIC_TX_POWER
 /**
- * @brief BLE 连接句柄改变处理器
- * 
- * @param old 旧的句柄
- * @param new 新的句柄
+ * @brief 开始监测指定连接的 RSSI（诊断打点）。
+ *
+ * RSSI 每变化 >= 5dB 触发一次 BLE_GAP_EVT_RSSI_CHANGED，
+ * 用于在 RTT 日志中观察每次断连前的信号强度趋势，判断是否为 RF 干扰/信号问题。
+ *
+ * @param conn_handle 连接句柄
  */
-static void ble_conn_handle_change(uint16_t old, uint16_t new)
+static void ble_rssi_monitor_start(uint16_t conn_handle)
 {
-    if (old != BLE_CONN_HANDLE_INVALID) {
-        sd_ble_gap_rssi_stop(old);
-    }
-    if (new != BLE_CONN_HANDLE_INVALID) {
-        sd_ble_gap_rssi_start(new, 5, 5);
+    ret_code_t err_code = sd_ble_gap_rssi_start(conn_handle, 5, 5);
+    if (err_code != NRF_SUCCESS && err_code != NRF_ERROR_INVALID_STATE) {
+        xprintf("[BLE] t=%lums rssi_start failed err=%lu\n", ble_uptime_ms(), err_code);
     }
 }
 
-static uint8_t current_tx = 6; // 0dbm default.
+/**
+ * @brief 停止监测指定连接的 RSSI
+ *
+ * @param conn_handle 连接句柄
+ */
+static void ble_rssi_monitor_stop(uint16_t conn_handle)
+{
+    (void)sd_ble_gap_rssi_stop(conn_handle);
+}
+
+//动态发射功率
+#ifdef DYNAMIC_TX_POWER
+static uint8_t current_tx = 3; // 0dbm 在 tx_power_table 中的下标。
 
 /**
- * @brief RSSI 改变事件处理器
- * 
- * @param rssi 
+ * @brief RSSI 改变事件处理器（自动发射功率调整）
+ *
+ * @warning 原实现允许把发射功率一路降到 -40dBm：键盘贴近电脑时 RSSI 较强，
+ *          每次 RSSI 波动都会继续降功率，极易使链路因信号过弱而掉线（监督超时）。
+ *          这里将最低发射功率限制在 -12dBm，避免功率过低打穿连接。
+ *
+ * @param rssi 当前 RSSI
  */
 static void ble_rssi_change(int8_t rssi)
 {
-    const int8_t tx_power_table[] = { -40, -20, -16, -12, -8, -4, 0, 3, 4 };
+    const int8_t tx_power_table[] = { -12, -8, -4, 0, 3, 4 };
     if (rssi >= -65 && current_tx > 0)
         current_tx--;
     else if (rssi <= -80 && current_tx < sizeof(tx_power_table) - 1)
@@ -818,11 +853,11 @@ static void ble_rssi_change(int8_t rssi)
     else
         return;
 
-    sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_CONN, m_conn_handle, tx_power_table[current_tx]);
+    ret_code_t err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_CONN, m_conn_handle, tx_power_table[current_tx]);
+    if (err_code != NRF_SUCCESS) {
+        xprintf("[BLE] t=%lums tx_power_set err=%lu\n", ble_uptime_ms(), err_code);
+    }
 }
-#else
-#define ble_conn_handle_change(A, B)
-#define ble_rssi_change(A)
 #endif
 
 /**
@@ -836,33 +871,22 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
     ret_code_t err_code;
 
     switch (p_ble_evt->header.evt_id) {
-    case BLE_GAP_EVT_CONNECTED:
+    case BLE_GAP_EVT_CONNECTED: {
+        uint16_t conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
         if (!m_init_done) {
-            xprintf("[BLE] Reject early connection (init not done)\n");
-            sd_ble_gap_disconnect(p_ble_evt->evt.gap_evt.conn_handle,
+            sd_ble_gap_disconnect(conn_handle,
                                   BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             break;
         }
-        m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+        m_conn_handle = conn_handle;
         err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
         APP_ERROR_CHECK(err_code);
-        ble_conn_handle_change(m_conn_handle, p_ble_evt->evt.gap_evt.conn_handle);
-        m_conn_start_ticks = app_timer_cnt_get();
-        {
-            ble_gap_conn_params_t const* init = &p_ble_evt->evt.gap_evt.params.connected.conn_params;
-            xprintf("[BLE] Connected, handle=%d, interval=%d, latency=%d, timeout=%d\n",
-                    m_conn_handle, init->min_conn_interval, init->slave_latency, init->conn_sup_timeout);
-        }
+        ble_rssi_monitor_start(m_conn_handle);
         break;
+    }
 
     case BLE_GAP_EVT_DISCONNECTED:
-        ble_conn_handle_change(m_conn_handle, BLE_CONN_HANDLE_INVALID);
-        {
-            uint32_t delta = app_timer_cnt_diff_compute(app_timer_cnt_get(), m_conn_start_ticks);
-            uint32_t ms = (delta * 1000) / 32768;
-            xprintf("[BLE] Disconnected, reason=%d, duration=%dms\n",
-                    p_ble_evt->evt.gap_evt.params.disconnected.reason, ms);
-        }
+        ble_rssi_monitor_stop(p_ble_evt->evt.gap_evt.conn_handle);
         m_conn_handle = BLE_CONN_HANDLE_INVALID;
 
         if (on_disconnect_handler != NULL) {
@@ -873,12 +897,11 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
         trig_event_param(USER_EVT_BLE_STATE_CHANGE, BLE_STATE_DISCONNECT);
         break; // BLE_GAP_EVT_DISCONNECTED
 
-    case BLE_GAP_EVT_CONN_PARAM_UPDATE: {
-        ble_gap_conn_params_t const* cp = &p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params;
-        xprintf("[BLE] Conn param updated: interval=%d, latency=%d, timeout=%d\n",
-                cp->min_conn_interval, cp->slave_latency, cp->conn_sup_timeout);
+    case BLE_GAP_EVT_CONN_PARAM_UPDATE:
         break;
-    }
+
+    case BLE_GAP_EVT_CONN_PARAM_UPDATE_REQUEST:
+        break;
 
     case BLE_GAP_EVT_PHY_UPDATE_REQUEST: {
         ble_gap_phys_t const phys = {
@@ -886,11 +909,54 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
             .tx_phys = BLE_GAP_PHY_AUTO,
         };
         err_code = sd_ble_gap_phy_update(p_ble_evt->evt.gap_evt.conn_handle, &phys);
+        if (err_code != NRF_SUCCESS) {
+            xprintf("[BLE] PHY update reply failed: %d\n", err_code);
+        }
         APP_ERROR_CHECK(err_code);
     } break;
 
+    case BLE_GAP_EVT_PHY_UPDATE:
+        break;
+
+    case BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST:
+        break;
+
+    case BLE_GAP_EVT_DATA_LENGTH_UPDATE:
+        break;
+
+    case BLE_GAP_EVT_TIMEOUT:
+        break;
+
+    case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
+        break;
+
+    case BLE_GAP_EVT_SEC_INFO_REQUEST:
+        break;
+
+    case BLE_GAP_EVT_SEC_REQUEST:
+        break;
+
+    case BLE_GAP_EVT_PASSKEY_DISPLAY:
+        break;
+
+    case BLE_GAP_EVT_AUTH_KEY_REQUEST:
+        trig_event_param(USER_EVT_BLE_PASSKEY_STATE, PASSKEY_STATE_REQUIRE);
+        break;
+
+    case BLE_GAP_EVT_AUTH_STATUS:
+        break;
+
+    case BLE_GAP_EVT_CONN_SEC_UPDATE:
+        break;
+
+    case BLE_GAP_EVT_ADV_SET_TERMINATED:
+        break;
+
     case BLE_GATTS_EVT_HVN_TX_COMPLETE:
         trig_event_param(USER_EVT_INTERNAL, INTERNAL_EVT_GATTS_TX_COMPLETE);
+        break;
+
+    case BLE_GATTS_EVT_SYS_ATTR_MISSING:
         break;
 
     case BLE_GATTC_EVT_TIMEOUT:
@@ -907,12 +973,10 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
         APP_ERROR_CHECK(err_code);
         break;
 
-    case BLE_GAP_EVT_AUTH_KEY_REQUEST:
-        trig_event_param(USER_EVT_BLE_PASSKEY_STATE, PASSKEY_STATE_REQUIRE);
-        break;
-
     case BLE_GAP_EVT_RSSI_CHANGED:
+#ifdef DYNAMIC_TX_POWER
         ble_rssi_change(p_ble_evt->evt.gap_evt.params.rssi_changed.rssi);
+#endif
         break;
 
     default:

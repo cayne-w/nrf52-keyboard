@@ -58,6 +58,7 @@ static void keyboard_switch_scan_mode(bool slow)
 
     err_code = app_timer_start(m_keyboard_scan_timer, slow ? SLOW_SCAN_INTERVAL : FAST_SCAN_INTERVAL, NULL);
     APP_ERROR_CHECK(err_code);
+    xprintf("[KBD] switch scan mode to %s (sleep_counter=%lu)\n", slow ? "SLOW" : "FAST", (unsigned long)sleep_counter);
 }
 
 /**
@@ -96,8 +97,10 @@ static void keyboard_sleep_handler(void* p_context)
         sleep_counter++;
 
     if (sleep_counter == get_slow_scan_timeout()) {
+        xprintf("[KBD] slow scan timeout reached (counter=%lu)\n", (unsigned long)sleep_counter);
         keyboard_switch_scan_mode(true);
     } else if (sleep_counter == get_sleep_timeout()) {
+        xprintf("[KBD] sleep timeout reached (counter=%lu), going to sleep\n", (unsigned long)sleep_counter);
         sleep(SLEEP_TIMEOUT);
     }
 
@@ -112,6 +115,7 @@ static void keyboard_sleep_handler(void* p_context)
 static void keyboard_sleep_counter_reset(void)
 {
     if (sleep_counter >= get_slow_scan_timeout()) {
+        xprintf("[KBD] sleep counter reset, switching back to FAST scan\n");
         keyboard_switch_scan_mode(false);
     }
     sleep_counter = 0;
@@ -195,6 +199,8 @@ void ble_keyboard_timer_start(void)
 
     err_code = app_timer_start(m_keyboard_sleep_timer, TICK_INTERVAL, NULL);
     APP_ERROR_CHECK(err_code);
+    xprintf("[KBD] keyboard timers started (FAST_SCAN=%dms, TICK=%dms)\n",
+            KEYBOARD_FAST_SCAN_INTERVAL, 1000);
 }
 
 /**
@@ -205,6 +211,7 @@ void ble_keyboard_timer_start(void)
 void ble_keyboard_powersave(bool save)
 {
     if (save != powersave) {
+        xprintf("[KBD] powersave %d -> %d\n", powersave, save);
         powersave = save;
         if (!powersave) {
             keyboard_sleep_counter_reset();

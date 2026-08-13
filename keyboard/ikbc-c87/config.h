@@ -41,12 +41,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define BOOTMAGIC_KEY_ERASE_BOND KC_E /* 删除所有绑定 */
 
 // 键盘省电参数
-#define SLEEP_SLOW_TIMEOUT 40 // 键盘闲置多久后转入慢速扫描模式 (s)
-#define SLEEP_OFF_TIMEOUT 60 // 键盘闲置多久后转入自动关机 (s)
+#define SLEEP_SLOW_TIMEOUT 600 // 键盘闲置多久后转入慢速扫描模式 (s)
+#define SLEEP_OFF_TIMEOUT 3600 // 键盘闲置多久后转入自动关机 (s)
 #define KEYBOARD_SCAN_INTERVAL 1 // 键盘最小时间单位TICK (ms)
 #define KEYBOARD_FAST_SCAN_INTERVAL 10 // 通常模式下，多久扫描一次键盘 (ms)
 #define KEYBOARD_SLOW_SCAN_INTERVAL 100 // 慢速模式下，多久扫描一次键盘 (ms)
 #define LED_AUTOOFF_TIME 0 /* LED自动熄灭时长(s)，设为0则不自动熄灭 */
+
+// BLE 连接参数（抗干扰实验调优）
+// 连接间隔越短越容易被 2.4GHz 干扰打穿；macOS HID 通常会固定为 15ms，
+// 实际协商值请以 RTT 日志中的 conn_params 行为准。
+#define BLE_CONN_INTERVAL_MIN_MS 22.5
+#define BLE_CONN_INTERVAL_MAX_MS 30
 
 // 键盘额外功能
 #define DYNAMIC_TX_POWER /* 启用自动发射功率调整 */

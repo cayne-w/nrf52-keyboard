@@ -24,6 +24,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "ble_config.h"
 #include "ble_hid_service.h"
+#include "mbed/xprintf.h"
 
 #define MAX_BUFFER_ENTRIES 5 /**< Number of elements that can be enqueued */
 #define BASE_USB_HID_SPEC_VERSION 0x0101 /**< Version number of base USB HID Specification implemented by this application. */
@@ -382,6 +383,7 @@ void keys_send(uint8_t report_id, uint8_t key_pattern_len, uint8_t* p_key_patter
     }
 
     if ((err_code != NRF_SUCCESS) && (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_RESOURCES) && (err_code != NRF_ERROR_BUSY) && (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING) && (err_code != NRF_ERROR_FORBIDDEN)) {
+        xprintf("[HID] keys_send report_id=%d len=%d failed: %d\n", report_id, key_pattern_len, err_code);
         APP_ERROR_HANDLER(err_code);
     }
 }
