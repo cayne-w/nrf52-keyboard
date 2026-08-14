@@ -832,31 +832,60 @@ static void ble_rssi_monitor_stop(uint16_t conn_handle)
 
 //动态发射功率
 #ifdef DYNAMIC_TX_POWER
-static uint8_t current_tx = 3; // 0dbm 在 tx_power_table 中的下标。
+/**
+ * @brief 自动发射功率可用的功率档位表（升序）。
+ *
+ * @warning 原实现最低档为 -40dBm：键盘贴近电脑时 RSSI 较强，每次 RSSI 波动都会
+ *          继续降功率，极易使链路因信号过弱而掉线（监督超时）。这里将最低发射
+ *          功率限制在 -12dBm，避免功率过低打穿连接。
+ */
+static const int8_t ble_tx_power_table[] = { -12, -8, -4, 0, 3, 4 };
+#define TX_POWER_DEFAULT_INDEX 3 /**< 默认发射功率 0dBm 在 ble_tx_power_table 中的下标 */
+
+static uint8_t current_tx = TX_POWER_DEFAULT_INDEX;
+
+/**
+ * @brief 将连接发射功率复位为默认值（0dBm）。
+ *
+ * @warning current_tx 是跨连接保持的静态值：若上一段连接因近距离把功率降到了
+ *          -12dBm，下一次远距离重连会从弱信号起步，可能复现连接初期掉线。
+ *          因此在每次新连接建立时都必须复位到默认功率。
+ *
+ * @param conn_handle 新建立的连接句柄
+ */
+static void ble_tx_power_reset(uint16_t conn_handle)
+{
+    current_tx = TX_POWER_DEFAULT_INDEX;
+    ret_code_t err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_CONN, conn_handle,
+                                                  ble_tx_power_table[current_tx]);
+    if (err_code != NRF_SUCCESS) {
+        xprintf("[BLE] t=%lums tx_power_reset err=%lu\n", ble_uptime_ms(), err_code);
+    }
+}
 
 /**
  * @brief RSSI 改变事件处理器（自动发射功率调整）
- *
- * @warning 原实现允许把发射功率一路降到 -40dBm：键盘贴近电脑时 RSSI 较强，
- *          每次 RSSI 波动都会继续降功率，极易使链路因信号过弱而掉线（监督超时）。
- *          这里将最低发射功率限制在 -12dBm，避免功率过低打穿连接。
  *
  * @param rssi 当前 RSSI
  */
 static void ble_rssi_change(int8_t rssi)
 {
-    const int8_t tx_power_table[] = { -12, -8, -4, 0, 3, 4 };
     if (rssi >= -65 && current_tx > 0)
         current_tx--;
-    else if (rssi <= -80 && current_tx < sizeof(tx_power_table) - 1)
+    else if (rssi <= -80 && current_tx < sizeof(ble_tx_power_table) - 1)
         current_tx++;
     else
         return;
 
-    ret_code_t err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_CONN, m_conn_handle, tx_power_table[current_tx]);
+    ret_code_t err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_CONN, m_conn_handle, ble_tx_power_table[current_tx]);
     if (err_code != NRF_SUCCESS) {
         xprintf("[BLE] t=%lums tx_power_set err=%lu\n", ble_uptime_ms(), err_code);
     }
+}
+#else
+static void ble_tx_power_reset(uint16_t conn_handle)
+{
+    (void)conn_handle;
 }
 #endif
 
@@ -881,6 +910,7 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
         m_conn_handle = conn_handle;
         err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
         APP_ERROR_CHECK(err_code);
+        ble_tx_power_reset(m_conn_handle);
         ble_rssi_monitor_start(m_conn_handle);
         break;
     }
@@ -898,6 +928,13 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
         break; // BLE_GAP_EVT_DISCONNECTED
 
     case BLE_GAP_EVT_CONN_PARAM_UPDATE:
+        // 打印最终协商成功的连接参数，用于核对监督超时是否满足铁律。
+        xprintf("[BLE] t=%lums conn params: int=%d~%d sl=%d sup=%d\n",
+                ble_uptime_ms(),
+                p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params.min_conn_interval,
+                p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params.max_conn_interval,
+                p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params.slave_latency,
+                p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params.conn_sup_timeout);
         break;
 
     case BLE_GAP_EVT_CONN_PARAM_UPDATE_REQUEST:
@@ -910,9 +947,10 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
         };
         err_code = sd_ble_gap_phy_update(p_ble_evt->evt.gap_evt.conn_handle, &phys);
         if (err_code != NRF_SUCCESS) {
-            xprintf("[BLE] PHY update reply failed: %d\n", err_code);
+            // PHY 协商失败属于瞬时错误（如参数未变化返回 INVALID_STATE），
+            // 不应触发复位，否则一次失败的 PHY 协商会直接重启设备。
+            xprintf("[BLE] PHY update reply failed (ignored): %d\n", err_code);
         }
-        APP_ERROR_CHECK(err_code);
     } break;
 
     case BLE_GAP_EVT_PHY_UPDATE:
@@ -974,6 +1012,10 @@ static void ble_evt_handler(ble_evt_t const* p_ble_evt, void* p_context)
         break;
 
     case BLE_GAP_EVT_RSSI_CHANGED:
+        // RSSI 诊断打点：记录断连前的信号强度趋势，判断是否为 RF 干扰/信号问题。
+        xprintf("[BLE] t=%lums RSSI=%d dBm\n",
+                ble_uptime_ms(),
+                p_ble_evt->evt.gap_evt.params.rssi_changed.rssi);
 #ifdef DYNAMIC_TX_POWER
         ble_rssi_change(p_ble_evt->evt.gap_evt.params.rssi_changed.rssi);
 #endif

@@ -23,7 +23,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "queue.h"
 #include "util.h"
 #include "nrf_sdh.h"
+#include "nrf_soc.h"
 #include "app_scheduler.h"
+#include "app_timer.h"
+#include "mbed/xprintf.h"
 
 // keymap
 #include "keymap.h"
@@ -247,16 +250,25 @@ static void storage_callback(fds_evt_t const* p_evt)
 
 /**
  * @brief 初始化FDS
- * 
+ *
+ * @details 若 Flash 损坏导致 FDS 初始化不返回成功事件，等待会永久挂起且此时看门狗
+ *          尚未启用，设备将彻底卡死。这里加入超时，超时后直接复位重试，避免死锁。
  */
+#define FDS_INIT_TIMEOUT_TICKS APP_TIMER_TICKS(10000)
+
 static void storage_callback_init()
 {
     ret_code_t err_code;
     (void)fds_register(&storage_callback); //注册FDS
     err_code = fds_init();                 //初始化FDS
     APP_ERROR_CHECK(err_code);
+    uint32_t init_start = app_timer_cnt_get();
     while (!s_fds_initialized)             // 等待初始化完成
     {
+        if (app_timer_cnt_diff_compute(app_timer_cnt_get(), init_start) > FDS_INIT_TIMEOUT_TICKS) {
+            xprintf("[STORAGE] FDS init timeout, rebooting\n");
+            sd_nvic_SystemReset();
+        }
         app_sched_execute();
         // 等待过程中待机
 #ifdef SOFTDEVICE_PRESENT
